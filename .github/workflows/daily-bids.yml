@@ -33,3 +33,48 @@ jobs:
           name: AM-Traffic-Safety-Report
           path: output/
           if-no-files-found: warn
+
+      - name: Send report by Gmail
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          from pathlib import Path
+          from email.message import EmailMessage
+
+          gmail_user = os.environ["GMAIL_USER"]
+          gmail_password = os.environ["GMAIL_APP_PASSWORD"]
+
+          html_file = Path("output/am_traffic_safety_report.html")
+          csv_file = Path("output/am_traffic_safety_opportunities.csv")
+
+          msg = EmailMessage()
+          msg["Subject"] = "AM Traffic Safety – Daily Opportunity Report"
+          msg["From"] = gmail_user
+          msg["To"] = gmail_user
+
+          msg.set_content(
+              "Your AM Traffic Safety daily opportunity report is attached."
+          )
+
+          if html_file.exists():
+              html = html_file.read_text(encoding="utf-8")
+              msg.add_alternative(html, subtype="html")
+
+          if csv_file.exists():
+              msg.add_attachment(
+                  csv_file.read_bytes(),
+                  maintype="text",
+                  subtype="csv",
+                  filename=csv_file.name
+              )
+
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+              smtp.login(gmail_user, gmail_password)
+              smtp.send_message(msg)
+
+          print("Report sent successfully.")
+          PY
